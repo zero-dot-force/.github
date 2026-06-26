@@ -1,0 +1,46 @@
+orgs:
+  zero-dot-force:
+    # Org settings
+    billing_email: jay.flowers@gmail.com
+    default_repository_permission: read
+    has_organization_projects: true
+    has_repository_projects: true
+    members_can_create_repositories: true
+
+    # Org members
+    admins:
+      - jflowers
+      - marcusburghardt
+      - sonupreetam
+    members:
+      - beatrizmcouto
+      - em-redhat
+      - gvauter
+      - gxmiranda
+      - hbraswelrh
+      - jpower432
+      - trevor-vaughan
+      - tyraziel
+      - yvonnedevlinrh
+
+    # Teams
+    teams:
+      overlords:
+        description: ""
+        privacy: closed
+        members:
+          - beatrizmcouto
+          - em-redhat
+          - gvauter
+          - gxmiranda
+          - hbraswelrh
+          - jpower432
+          - yvonnedevlinrh
+        maintainers:
+          - jflowers
+          - marcusburghardt
+          - sonupreetam
+          - trevor-vaughan
+        repos:
+          .github: write
+          snake-eyes: write

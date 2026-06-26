@@ -1,0 +1,49 @@
+name: Org Sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'org/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync Org Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: zero-dot-force
+
+      - name: Apply org configuration
+        run: |
+          echo "$GITHUB_TOKEN" > /tmp/github-token
+          docker run --rm \
+            -v "${{ github.workspace }}/org/config.yaml:/config.yaml:ro" \
+            -v /tmp/github-token:/token:ro \
+            ghcr.io/uwu-tools/peribolos:latest@sha256:669ed622aed87acf68744330f5d664851a627de262806894a3fd95bbf9aac56a \
+              --config-path /config.yaml \
+              --github-token-path /token \
+              --fix-org \
+              --fix-org-members \
+              --fix-teams \
+              --fix-team-members \
+              --fix-team-repos \
+              --required-admins=jflowers \
+              --min-admins=2 \
+              --require-self=false \
+              --maximum-removal-delta=0.50 \
+              --confirm
+          rm -f /tmp/github-token
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
