@@ -1,0 +1,181 @@
+# Workflow to apply safe-settings org configuration.
+# Manual dispatch only — add push/schedule triggers after initial validation.
+# Uses a dedicated safe-settings-bot GitHub App for authentication.
+#
+# safe-settings reads config from the admin repo's default branch (main).
+# Config must be merged to main before this workflow can apply it.
+#
+# See MAINTAINING.md for operational documentation.
+name: Safe Settings Sync
+
+"on":
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Preview changes without applying (NOP mode)'
+        required: false
+        type: boolean
+        default: true
+      repos:
+        description: >-
+          Comma-separated list of repos to target (e.g. "snake-eyes").
+          Leave empty to apply to all managed repos.
+        required: false
+        type: string
+        default: ''
+      version:
+        description: >-
+          safe-settings commit SHA or tag to use.
+          Default is 2.1.18 (last version compatible with Probot v13).
+          Includes workaround for check_suite bug (#818) in full-sync
+          mode. See TODO(safe-settings-818) in the sync step.
+        required: false
+        type: string
+        default: '594f3c706de6c4ddafb1a86dfa7468f19337e54f'
+
+permissions:
+  contents: none
+
+concurrency:
+  group: safe-settings-sync
+  cancel-in-progress: false
+
+env:
+  SAFE_SETTINGS_CODE_DIR: ".safe-settings-code"
+
+jobs:
+  sync:
+    if: github.repository_owner == 'zero-dot-force'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout zero-dot-force/.github repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Validate safe-settings YAML syntax
+        run: yamllint safe-settings/
+
+      - name: Generate scoped deployment-settings
+        if: inputs.repos != ''
+        env:
+          TARGET_REPOS: ${{ inputs.repos }}
+        run: |
+          echo "Scoping safe-settings to repos: $TARGET_REPOS"
+
+          # Build an include (allowlist) from the target repos.
+          # Uses the same format as deployment-settings.yml: plain names
+          # matched by safe-settings via glob/minimatch (not regex).
+          INCLUDE_LIST=""
+          IFS=',' read -ra TARGETS <<< "$TARGET_REPOS"
+          for target in "${TARGETS[@]}"; do
+            target=$(echo "$target" | xargs)  # trim whitespace
+            INCLUDE_LIST="${INCLUDE_LIST}    - ${target}"$'\n'
+          done
+
+          # Write scoped deployment-settings.yml (preserving validators
+          # from the original file)
+          {
+            echo "# Auto-generated: scoped to repos: $TARGET_REPOS"
+            echo "restrictedRepos:"
+            echo "  include:"
+            echo -n "$INCLUDE_LIST"
+            # Append validators from original file
+            echo ""
+            yq -r 'del(.restrictedRepos) | select(. != null)' \
+              safe-settings/deployment-settings.yml
+          } > /tmp/scoped-deployment-settings.yml
+
+          echo "--- Generated deployment-settings.yml ---"
+          cat /tmp/scoped-deployment-settings.yml
+
+      - name: Checkout safe-settings code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: github/safe-settings
+          ref: ${{ inputs.version }}
+          path: ${{ env.SAFE_SETTINGS_CODE_DIR }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: '20'
+
+      - name: Install safe-settings dependencies
+        working-directory: ${{ env.SAFE_SETTINGS_CODE_DIR }}
+        run: npm ci
+
+      - name: Run safe-settings sync
+        working-directory: ${{ env.SAFE_SETTINGS_CODE_DIR }}
+        env:
+          APP_ID: ${{ vars.SAFE_SETTINGS_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.SAFE_SETTINGS_PRIVATE_KEY }}
+          GH_ORG: zero-dot-force
+          ADMIN_REPO: .github
+          CONFIG_PATH: safe-settings
+          DEPLOYMENT_CONFIG_FILE: >-
+            ${{ inputs.repos != '' && '/tmp/scoped-deployment-settings.yml'
+            || format('{0}/safe-settings/deployment-settings.yml', github.workspace) }}
+          FULL_SYNC_NOP: ${{ inputs.dry-run }}
+          LOG_LEVEL: ${{ inputs.dry-run && 'debug' || 'info' }}
+        run: |
+          if [ "$FULL_SYNC_NOP" = "true" ]; then
+            echo "=== DRY-RUN MODE: Showing what would change ==="
+          fi
+          # --- Workaround for upstream check_suite bug ---
+          #
+          # safe-settings v2.1.18 crashes in full-sync mode because
+          # handleResults accesses payload.check_suite which is
+          # undefined outside the webhook flow. The sync itself
+          # completes; only the Check Run reporting fails.
+          #
+          # Upstream issue: github-community-projects/safe-settings#818
+          # Upstream fix:   github-community-projects/safe-settings#1018
+          #
+          # TODO(safe-settings-818): Remove this patched script and
+          # revert to 'npm run full-sync' once upstream PR #1018 is
+          # merged and we pin to the fixed version.
+          #
+          # ---
+          cat > full-sync-patched.js << 'ENDPATCH'
+          const appFn = require('./')
+          const { FULL_SYNC_NOP } = require('./lib/env')
+          const { createProbot } = require('probot')
+
+          async function performFullSync (appFn, nop) {
+            const probot = createProbot()
+            probot.log.info(`Starting full sync with NOP=${nop}`)
+            try {
+              const app = appFn(probot, {})
+              const settings = await app.syncInstallation(nop)
+              if (settings.errors && settings.errors.length > 0) {
+                probot.log.error('Errors occurred during full sync.')
+                process.exit(1)
+              }
+              probot.log.info('Full sync completed successfully.')
+            } catch (error) {
+              // Workaround: github-community-projects/safe-settings#818
+              // In full-sync mode (CLI/GHA), handleResults tries to
+              // access payload.check_run.check_suite which does not
+              // exist outside the webhook flow. The sync completes
+              // and results are logged; only the Check Run reporting
+              // fails. Safe to skip.
+              if (String(error).includes("Cannot read properties of undefined (reading 'check_suite')")) {
+                probot.log.info(
+                  'check_suite reporting skipped (expected in full-sync mode). ' +
+                  'See: github-community-projects/safe-settings#818'
+                )
+                return
+              }
+              process.stdout.write(`Unexpected error during full sync: ${error}\n`)
+              process.exit(1)
+            }
+          }
+
+          performFullSync(appFn, FULL_SYNC_NOP).catch((error) => {
+            console.error('Fatal error during full sync:', error)
+            process.exit(1)
+          })
+          ENDPATCH
+          node full-sync-patched.js

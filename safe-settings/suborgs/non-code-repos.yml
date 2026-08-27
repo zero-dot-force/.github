@@ -1,0 +1,12 @@
+# Suborg: non-code repositories.
+# These repos hold community content, documentation, and the website.
+# They use lighter branch protection: no required signatures, no code
+# owner review requirement.
+#
+# Org-wide defaults from settings.yml are inherited automatically.
+# Only override settings here if non-code repos need different values
+# than the org-wide defaults.
+
+# Currently no non-code repos exist. Add repos here as they are created.
+# suborgrepos:
+#   - example-repo

@@ -1,0 +1,57 @@
+name: Scheduled Jobs
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions:
+  contents: read
+  actions: none
+  id-token: none
+  security-events: none
+
+jobs:
+  osv-scanner:
+    name: OSV-Scanner (Scheduled)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run OSV-Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@e5012758b0e8dd5bfb87e3def776e6a05a2a5af2 # v2.0.2
+        with:
+          scan-args: |-
+            --recursive
+            .
+
+  scorecards:
+    name: OpenSSF Scorecards (Scheduled)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecards
+        uses: ossf/scorecard-action@05b42c624433fc40578a4093d9a6c705f1243920 # v2.4.2
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3
+        with:
+          sarif_file: results.sarif
