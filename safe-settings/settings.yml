@@ -1,0 +1,122 @@
+# Organization-wide repository settings for the zero-dot-force GitHub org.
+# Applied to all managed repos. Suborg and repo-level overrides can
+# extend but not weaken these defaults (enforced by override validators).
+#
+# IMPORTANT: This file must NOT set fields owned by peribolos:
+#   description, has_projects, default_branch
+#
+# Excluded from safe-settings management:
+#   .github: admin repo (avoids circular dependency)
+
+repository:
+  # Allow auto-merge on pull requests when all requirements are met.
+  allow_auto_merge: false
+
+  # Automatically delete head branches after pull requests are merged.
+  delete_branch_on_merge: true
+
+  # Merge strategies — all enabled org-wide, matching current state.
+  allow_squash_merge: true
+  allow_merge_commit: true
+  allow_rebase_merge: true
+
+  # Allow the "Update branch" button on PRs.
+  allow_update_branch: true
+
+  # Disable wiki org-wide. Documentation lives in dedicated repos.
+  has_wiki: false
+
+  has_issues: true
+  has_downloads: true
+
+  # Dependabot vulnerability alerts and automated security fixes.
+  security:
+    enableVulnerabilityAlerts: true
+    enableAutomatedSecurityFixes: true
+
+# Standard labels across all repos
+labels:
+  - name: bug
+    color: d73a4a
+    description: Something isn't working
+
+  - name: documentation
+    color: 0075ca
+    description: Improvements or additions to documentation
+
+  - name: duplicate
+    color: cfd3d7
+    description: This issue or pull request already exists
+
+  - name: enhancement
+    color: a2eeef
+    description: New feature or request
+
+  - name: good first issue
+    color: '7057ff'
+    description: Good for newcomers
+
+  - name: help wanted
+    color: '008672'
+    description: Extra attention is needed
+
+  - name: invalid
+    color: e4e669
+    description: This doesn't seem right
+
+  - name: question
+    color: d876e3
+    description: Further information is requested
+
+  - name: wontfix
+    color: ffffff
+    description: This will not be worked on
+
+# Rulesets applied at the org level.
+# These create GitHub rulesets visible under Settings > Rules > Rulesets.
+rulesets:
+  # Ruleset for code repositories — strict branch protection.
+  - name: "safe-settings: code repos"
+    target: branch
+    enforcement: active
+
+    conditions:
+      ref_name:
+        include:
+          - "~DEFAULT_BRANCH"
+        exclude: []
+      repository_name:
+        include:
+          - reading-stone
+          - snake-eyes
+        exclude: []
+
+    rules:
+      # Restrict creation of refs matching the default branch pattern.
+      # Prevents recreating the default branch if deleted.
+      - type: creation
+
+      # Prevent deletion of the default branch.
+      - type: deletion
+
+      # Prevent force pushes to the default branch.
+      - type: non_fast_forward
+
+      # Pull request requirements.
+      # Baseline: 1 approver, dismiss stale reviews, code owner review,
+      # last push approval.
+      - type: pull_request
+        parameters:
+          required_approving_review_count: 1
+          dismiss_stale_reviews_on_push: true
+          require_code_owner_review: true
+          require_last_push_approval: true
+          required_review_thread_resolution: false
+
+      # Preserve any status checks configured outside of safe-settings
+      # (e.g., via individual repo workflow configurations).
+      - type: required_status_checks
+        parameters:
+          strict_required_status_checks_policy: true
+          required_status_checks:
+            - context: "{{EXTERNALLY_DEFINED}}"

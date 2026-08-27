@@ -1,49 +1,112 @@
-name: Org Sync
+# Workflow to apply the Peribolos org configuration.
+# Runs on push to main, daily schedule, or manual dispatch.
+name: "Peribolos: Apply"
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'org/**'
+    branches:
+      - main
+  pull_request:
+  schedule:
+    # Daily at 05:30 UTC — results visible by EU morning (07:30 CEST / 06:30 CET)
+    - cron: '30 5 * * *'
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Run Peribolos without --confirm (dry-run mode)'
+        required: false
+        type: boolean
+        default: false
 
-permissions:
-  contents: read
+concurrency:
+  group: peribolos-apply
+  cancel-in-progress: false
 
 jobs:
-  sync:
-    name: Sync Org Configuration
+  Apply-peribolos:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Checkout zero-dot-force/.github repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: './go.mod'
+
+      - name: Copy org/config.yaml
+        run: cp org/config.yaml /tmp/config.yaml
+
+      - name: Checkout peribolos code
+        if: >-
+          github.repository_owner == 'zero-dot-force' &&
+          github.event_name != 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kubernetes-sigs/prow
+
+      - name: Build peribolos
+        if: >-
+          github.repository_owner == 'zero-dot-force' &&
+          github.event_name != 'pull_request'
+        run: |
+          cd cmd/peribolos
+          go mod tidy
+          go build -o .
+          cp peribolos /tmp
 
       - name: Generate GitHub App token
+        if: >-
+          github.repository_owner == 'zero-dot-force' &&
+          github.event_name != 'pull_request'
         id: app-token
-        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: zero-dot-force
 
       - name: Apply org configuration
-        run: |
-          echo "$GITHUB_TOKEN" > /tmp/github-token
-          docker run --rm \
-            -v "${{ github.workspace }}/org/config.yaml:/config.yaml:ro" \
-            -v /tmp/github-token:/token:ro \
-            ghcr.io/uwu-tools/peribolos:latest@sha256:669ed622aed87acf68744330f5d664851a627de262806894a3fd95bbf9aac56a \
-              --config-path /config.yaml \
-              --github-token-path /token \
-              --fix-org \
-              --fix-org-members \
-              --fix-teams \
-              --fix-team-members \
-              --fix-team-repos \
-              --required-admins=jflowers \
-              --min-admins=2 \
-              --require-self=false \
-              --maximum-removal-delta=0.50 \
-              --confirm
-          rm -f /tmp/github-token
+        if: >-
+          github.repository_owner == 'zero-dot-force' &&
+          github.event_name != 'pull_request'
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+        run: |
+          set -o pipefail
+
+          # Write the token to a secure temp file. Prow's SecretAgent
+          # re-reads --github-token-path periodically, so a process
+          # substitution FIFO (consumed on first read) causes 401s on
+          # subsequent API calls.
+          TOKEN_FILE=$(mktemp)
+          trap 'rm -f "$TOKEN_FILE"' EXIT
+          install -m 0600 /dev/null "$TOKEN_FILE"
+          printf '%s' "$APP_TOKEN" > "$TOKEN_FILE"
+
+          PERIBOLOS_ARGS=(
+            --config-path /tmp/config.yaml
+            --fix-org
+            --fix-org-members
+            --fix-teams
+            --fix-team-members
+            --fix-repos
+            --fix-team-repos
+            --min-admins 2
+            --required-admins jflowers
+            --require-self=false
+            --ignore-enterprise-teams
+            --ignore-secret-teams
+          )
+
+          if [ "$DRY_RUN" != "true" ]; then
+            PERIBOLOS_ARGS+=(--confirm)
+          fi
+
+          /tmp/peribolos "${PERIBOLOS_ARGS[@]}" \
+            --github-token-path "$TOKEN_FILE" \
+            2>&1 | jq -r '[.severity, .time, .msg] | join(" | ")'

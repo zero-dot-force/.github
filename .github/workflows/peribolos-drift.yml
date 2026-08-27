@@ -1,0 +1,171 @@
+# Workflow to detect drift between org/config.yaml and actual GitHub org state.
+# Runs weekly on Monday mornings. Opens or updates a GitHub issue when drift is detected.
+#
+# Approach: runs peribolos in dry-run mode (without --confirm) and checks if it
+# would make any changes. If mutation log lines exist, drift is detected.
+# This avoids `peribolos --dump` which calls GET /user (incompatible with
+# installation tokens).
+name: "Peribolos: Drift"
+
+on:
+  schedule:
+    # Monday at 04:30 UTC — drift issues visible by EU morning (06:30 CEST / 05:30 CET),
+    # before daily reconciliation at 05:30 UTC
+    - cron: '30 4 * * 1'
+  workflow_dispatch:
+
+jobs:
+  detect-drift:
+    if: github.repository_owner == 'zero-dot-force'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout zero-dot-force/.github repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: './go.mod'
+
+      - name: Copy org/config.yaml
+        run: cp org/config.yaml /tmp/config.yaml
+
+      - name: Checkout peribolos code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kubernetes-sigs/prow
+
+      - name: Build peribolos
+        run: |
+          cd cmd/peribolos
+          go mod tidy
+          go build -o .
+          cp peribolos /tmp
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: zero-dot-force
+
+      - name: Run peribolos dry-run
+        id: drift
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          # Write the token to a secure temp file. Prow's SecretAgent
+          # re-reads --github-token-path periodically, so a process
+          # substitution FIFO (consumed on first read) causes 401s.
+          TOKEN_FILE=$(mktemp)
+          trap 'rm -f "$TOKEN_FILE"' EXIT
+          install -m 0600 /dev/null "$TOKEN_FILE"
+          printf '%s' "$APP_TOKEN" > "$TOKEN_FILE"
+
+          /tmp/peribolos \
+            --config-path /tmp/config.yaml \
+            --fix-org \
+            --fix-org-members \
+            --fix-teams \
+            --fix-team-members \
+            --fix-repos \
+            --fix-team-repos \
+            --min-admins 2 \
+            --required-admins jflowers \
+            --require-self=false \
+            --ignore-enterprise-teams \
+            --ignore-secret-teams \
+            --github-token-path "$TOKEN_FILE" \
+            > /tmp/peribolos-dryrun.log 2>&1 || true
+
+          echo "--- Peribolos dry-run output ---"
+          jq -r '[.severity, .time, .msg] | join(" | ")' /tmp/peribolos-dryrun.log
+
+          # Check for fatal errors (auth failure, config error, etc.)
+          if jq -e 'select(.severity == "fatal")' /tmp/peribolos-dryrun.log > /dev/null 2>&1; then
+            echo "::error::Peribolos dry-run failed. See output above."
+            exit 1
+          fi
+
+          # Extract mutation lines — these indicate drift
+          jq -r 'select(.msg | test("^(Edit|Update|Remove|Create|Delete|Add)")) | .msg' \
+            /tmp/peribolos-dryrun.log > /tmp/drift-mutations.txt
+
+          DRIFT_COUNT=$(wc -l < /tmp/drift-mutations.txt)
+          if [ "$DRIFT_COUNT" -eq 0 ]; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+            echo "No drift detected."
+          else
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+            echo "Drift detected: ${DRIFT_COUNT} change(s) would be applied:"
+            cat /tmp/drift-mutations.txt
+          fi
+
+      - name: Upload dry-run log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: peribolos-dryrun-log
+          path: /tmp/peribolos-dryrun.log
+          retention-days: 7
+
+      - name: Check for existing drift issue
+        if: steps.drift.outputs.drift == 'true'
+        id: existing-issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ISSUE_NUMBER=$(gh issue list \
+            --label peribolos-drift \
+            --state open \
+            --limit 1 \
+            --json number \
+            --jq '.[0].number // empty')
+          echo "issue_number=${ISSUE_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update drift issue
+        if: steps.drift.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.existing-issue.outputs.issue_number }}
+          WORKFLOW_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        run: |
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          {
+            echo "## Peribolos Drift Detected"
+            echo ""
+            echo "**Date**: ${TIMESTAMP}"
+            echo "**Workflow run**: ${WORKFLOW_URL}"
+            echo ""
+            echo "The following changes would be applied by Peribolos to reconcile"
+            echo "the actual GitHub org state with \`org/config.yaml\`:"
+            echo ""
+            echo '```'
+            cat /tmp/drift-mutations.txt
+            echo '```'
+            echo ""
+            echo "### Recommended Action"
+            echo ""
+            echo "- Review the changes to determine if the drift is intentional"
+            echo "- If unintentional: trigger a manual Peribolos apply via \`workflow_dispatch\`"
+            echo "- If intentional: update \`org/config.yaml\` to match the desired state"
+          } > /tmp/issue-body.md
+
+          if [ -n "$ISSUE_NUMBER" ]; then
+            gh issue edit "$ISSUE_NUMBER" --body-file /tmp/issue-body.md
+            echo "Updated existing issue #${ISSUE_NUMBER}"
+          else
+            gh issue create \
+              --title "Peribolos Drift Detected - $(date -u +%Y-%m-%d)" \
+              --body-file /tmp/issue-body.md \
+              --label peribolos-drift
+            echo "Created new drift issue"
+          fi

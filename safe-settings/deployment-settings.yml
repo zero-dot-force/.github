@@ -1,0 +1,47 @@
+# Deployment settings for github/safe-settings.
+# Controls which repos are managed and defines validation policies.
+#
+# This file is read at runtime via the DEPLOYMENT_CONFIG_FILE env var.
+# See: https://github.com/github/safe-settings
+
+# Repositories managed by safe-settings (allowlist approach).
+# Only repos listed here are managed. All others are ignored,
+# including the .github admin repo (avoids circular dependency)
+# and any repos not onboarded to safe-settings.
+#
+# safe-settings uses glob/minimatch for pattern matching (NOT regex).
+# Plain names match exactly. Use * for wildcards (e.g. "core-*").
+# See: https://github.com/github/safe-settings#restrictedrepos
+restrictedRepos:
+  include:
+    - reading-stone
+    - snake-eyes
+
+# Config validators run against each config entry before applying.
+# Return true to allow, false to reject.
+configvalidators:
+  - plugin: collaborators
+    error: |
+      Admin permission cannot be granted to collaborators via safe-settings.
+      Use peribolos team membership with admin role instead.
+    script: |
+      return baseconfig.permission != 'admin'
+
+# Override validators run when a suborg or repo config overrides an
+# org-level setting. Return true to allow, false to reject.
+overridevalidators:
+  - plugin: branches
+    error: |
+      Branch protection required_approving_review_count cannot be lowered
+      below the org-level default. Contact an org admin to request an
+      exception.
+    script: |
+      const baseCount = baseconfig?.protection?.required_pull_request_reviews?.required_approving_review_count
+      const overrideCount = overrideconfig?.protection?.required_pull_request_reviews?.required_approving_review_count
+      if (baseCount != null && overrideCount != null) {
+        return overrideCount >= baseCount
+      }
+      if (baseCount != null && overrideCount == null) {
+        return false
+      }
+      return true

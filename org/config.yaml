@@ -9,10 +9,10 @@ orgs:
 
     # Org members
     admins:
+      - em-redhat
       - jflowers
       - marcusburghardt
       - sonupreetam
-      - em-redhat
     members:
       - beatrizmcouto
       - gvauter
@@ -23,6 +23,21 @@ orgs:
       - tyraziel
       - yvonnedevlinrh
 
+    # Repos managed by peribolos (--fix-repos)
+    repos:
+      .github:
+        default_branch: main
+        description: Organization configuration and governance
+        has_projects: true
+      reading-stone:
+        default_branch: main
+        description: A TypeScript implementation for gaze
+        has_projects: true
+      snake-eyes:
+        default_branch: main
+        description: A Python implementation for gaze
+        has_projects: true
+
     # Teams
     teams:
       overlords:
@@ -30,18 +45,18 @@ orgs:
         privacy: closed
         members:
           - beatrizmcouto
-          - em-redhat
           - gvauter
           - gxmiranda
           - hbraswelrh
           - jpower432
           - trevor-vaughan
+          - yvonnedevlinrh
         maintainers:
+          - em-redhat
           - jflowers
           - marcusburghardt
           - sonupreetam
-          - yvonnedevlinrh
         repos:
           .github: write
-          snake-eyes: write
           reading-stone: write
+          snake-eyes: write

@@ -1,4 +1,5 @@
 # Org configuration — changes require admin review
-settings.yml    @jflowers @marcusburghardt
+*               @jflowers @marcusburghardt
 org/            @jflowers @marcusburghardt
+safe-settings/  @jflowers @marcusburghardt
 .github/        @jflowers @marcusburghardt
