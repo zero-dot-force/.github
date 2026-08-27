@@ -5,7 +5,7 @@ orgs:
     default_repository_permission: read
     has_organization_projects: true
     has_repository_projects: true
-    members_can_create_repositories: true
+    members_can_create_repositories: false
 
     # Org members
     admins:
@@ -35,12 +35,13 @@ orgs:
           - gxmiranda
           - hbraswelrh
           - jpower432
-          - yvonnedevlinrh
+          - trevor-vaughan
         maintainers:
           - jflowers
           - marcusburghardt
           - sonupreetam
-          - trevor-vaughan
+          - yvonnedevlinrh
         repos:
           .github: write
           snake-eyes: write
+          reading-stone: write
