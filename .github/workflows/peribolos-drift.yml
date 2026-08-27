@@ -38,8 +38,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kubernetes-sigs/prow
+          ref: 2b5fea27a177c767160452ba75dba978a88d8d63 # pin to known-good commit
 
       - name: Build peribolos
+        env:
+          GOTOOLCHAIN: auto
         run: |
           cd cmd/peribolos
           go mod tidy
