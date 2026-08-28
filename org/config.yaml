@@ -37,6 +37,14 @@ orgs:
         default_branch: main
         description: A Python implementation for gaze
         has_projects: true
+      vibe-check:
+        default_branch: main
+        description: Measuring and enforcing structural quality for agent-written code
+        has_projects: true
+      review-council:
+        default_branch: main
+        description: Standalone `review-council` packaged for lola installation
+        has_projects: true
 
     # Teams
     teams:
