@@ -30,3 +30,6 @@ go.work.sum
 # Editor/IDE
 .idea/
 .vscode/
+
+# opencode run logs written under an unresolved path (.opencode/undefined/)
+.opencode/undefined/
