@@ -48,3 +48,56 @@ rulesets:
           required_status_checks:
             - context: "test"
             - context: "lint"
+
+# Labels in use on issues and PRs. Without these entries the org's
+# exclude rule would delete them on a sync. hold and human-gate are
+# gh-hud's (it auto-merges PRs here); github_actions and go are
+# Dependabot's. Colors are quoted and keep GitHub's stored case:
+# safe-settings compares them as exact strings.
+labels:
+  include:
+    - name: "architecture"
+      color: '5319E7'
+      description: "Architectural design and cross-cutting concerns"
+
+    - name: "epic"
+      color: '3E4B9E'
+      description: "Umbrella issue tracking a group of related work items"
+
+    - name: "hold"
+      color: 'B60205'
+      description: "gh-hud: don't auto-merge; a person looks first"
+
+    - name: "P0"
+      color: 'B60205'
+      description: "Critical priority \u2014 Phase 1 foundation"
+
+    - name: "P1"
+      color: 'D93F0B'
+      description: "High priority \u2014 Phase 1\u20132"
+
+    - name: "P2"
+      color: 'FBCA04'
+      description: "Medium priority \u2014 Phase 3"
+
+    - name: "P3"
+      color: '0E8A16'
+      description: "Low priority \u2014 Phase 4 / future"
+
+    - name: "repo:dewey"
+      color: '006B75'
+      description: "Lands in the dewey repo"
+
+    - name: "repo:gaze"
+      color: '1D76DB'
+      description: "Lands in the gaze repo"
+
+    - name: "repo:snake-eyes"
+      color: '0052CC'
+      description: "Lands in the snake-eyes repo"
+
+    - name: "repo:unbound-force"
+      color: '0075CA'
+      description: "Lands in the unbound-force repo"
+  exclude:
+    - name: ".*"

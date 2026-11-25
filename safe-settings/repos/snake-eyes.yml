@@ -75,3 +75,16 @@ rulesets:
           required_status_checks:
             - context: "test (3.11)"
             - context: "test (3.12)"
+
+# Labels in use on issues and PRs. Without these entries the org's
+# exclude rule would delete them on a sync. hold and human-gate are
+# gh-hud's (it auto-merges PRs here); github_actions and go are
+# Dependabot's. Colors are quoted and keep GitHub's stored case:
+# safe-settings compares them as exact strings.
+labels:
+  include:
+    - name: "hold"
+      color: 'B60205'
+      description: "gh-hud: don't auto-merge; a person looks first"
+  exclude:
+    - name: ".*"
