@@ -21,6 +21,10 @@ GitHub organization using two complementary tools: **peribolos** and
 | Branch protection rules | safe-settings | `safe-settings/suborgs/<suborg>.yml` |
 | Rulesets (repo-scoped) | safe-settings | `safe-settings/suborgs/<suborg>.yml` |
 | Repo-scoped rulesets, environments | safe-settings | `safe-settings/repos/<repo>.yml` |
+| Org name and description | peribolos | `org/config.yaml` |
+| Org website | **manual** | GitHub API or UI (peribolos has no field) |
+| Repo topics and homepage | safe-settings | `safe-settings/repos/<repo>.yml` |
+| Secret scanning, push protection | **manual** | Org security configuration |
 | `.github` repo ruleset | **manual** | GitHub UI |
 
 **Why two tools?** Peribolos manages org-level concerns (who is a member,
@@ -91,6 +95,28 @@ that differ from its suborg defaults.
 3. Do NOT set peribolos-owned fields (`description`, `has_projects`,
    `default_branch`).
 4. Submit a PR. CI boundary tests validate the override.
+
+### Secret Scanning and Push Protection
+
+Secret scanning and push protection come from the org code security
+configuration **Zero Dot Force baseline** (Settings > Code security >
+Configurations), not from safe-settings. The pinned safe-settings version
+skips `security_and_analysis` when it compares a repo, so it can't keep
+these settings in place.
+
+- The configuration enables secret scanning and push protection only.
+  Every other field is `not_set`, so it never touches Dependabot, code
+  scanning or private vulnerability reporting.
+- It's attached to every repo and is the default for new public repos,
+  so a new repo gets it without any extra step.
+- `advanced_security` is `enabled` because GitHub requires it for secret
+  scanning. On public repos this costs nothing.
+
+To check a repo:
+
+```bash
+gh api repos/zero-dot-force/<repo>/code-security-configuration --jq .configuration.name
+```
 
 ## Override Validator Policies
 
