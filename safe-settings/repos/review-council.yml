@@ -16,3 +16,40 @@ repository:
     - gemini-cli
     - opencode
     - lola
+
+# Colors are quoted and keep GitHub's stored case: safe-settings compares
+# them as exact strings.
+#
+# gh-hud's hold label (it auto-merges PRs here). Without this entry a sync
+# would delete it, and with it the hold on any PR that carries it.
+labels:
+  include:
+    - name: hold
+      color: 'B60205'
+      description: "gh-hud: don't auto-merge; a person looks first"
+  exclude:
+    - name: ".*"
+
+# Required checks for this repo only. The suborg ruleset is shared, so a
+# check there would be required in repos that never run it. GitHub applies
+# both rulesets, so the suborg ruleset's approval rule still holds.
+#
+# "Check module" is ci.yml's job: frontmatter and relative links in
+# module/. gh-hud auto-merges PRs here, so nothing should merge before CI.
+rulesets:
+  - name: "safe-settings: review-council required checks"
+    target: branch
+    enforcement: active
+
+    conditions:
+      ref_name:
+        include:
+          - "~DEFAULT_BRANCH"
+        exclude: []
+
+    rules:
+      - type: required_status_checks
+        parameters:
+          strict_required_status_checks_policy: false
+          required_status_checks:
+            - context: "Check module"
