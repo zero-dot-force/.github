@@ -1,5 +1,6 @@
-# Org configuration — changes require admin review
-*               @jflowers @marcusburghardt
-org/            @jflowers @marcusburghardt
-safe-settings/  @jflowers @marcusburghardt
-.github/        @jflowers @marcusburghardt
+# Org configuration. Every change needs an approving review from one of
+# these code owners (see the "main: reviewed changes only" ruleset).
+*               @jflowers @marcusburghardt @uf-divisor
+org/            @jflowers @marcusburghardt @uf-divisor
+safe-settings/  @jflowers @marcusburghardt @uf-divisor
+.github/        @jflowers @marcusburghardt @uf-divisor
