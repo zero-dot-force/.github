@@ -1,6 +1,12 @@
 orgs:
   zero-dot-force:
     # Org settings
+    # The org website (unboundforce.dev) is set through the API; peribolos
+    # has no field for it.
+    name: Zero Dot Force
+    description: >-
+      The junior hero team of Unbound Force: tools that check the quality of
+      AI-written code and tests.
     billing_email: jay.flowers@gmail.com
     default_repository_permission: read
     has_organization_projects: true
