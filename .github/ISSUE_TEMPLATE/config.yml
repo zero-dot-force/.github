@@ -1,0 +1,13 @@
+# Org-wide defaults for the "New issue" page of every zero-dot-force repo
+# that has no ISSUE_TEMPLATE folder of its own.
+blank_issues_enabled: true
+contact_links:
+  - name: "🔒 Report a security vulnerability"
+    url: https://github.com/zero-dot-force/.github/blob/main/.github/SECURITY.md
+    about: Please report security problems privately, not in a public issue.
+  - name: "🤝 Contributing guide"
+    url: https://github.com/zero-dot-force/.github/blob/main/.github/CONTRIBUTING.md
+    about: How to set up, what we expect in a pull request, and how changes merge.
+  - name: "🦸 Unbound Force"
+    url: https://unboundforce.dev
+    about: Docs for Gaze and the rest of the senior team.

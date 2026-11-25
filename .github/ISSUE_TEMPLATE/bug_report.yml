@@ -1,0 +1,70 @@
+name: "🐛 Bug report"
+description: Something is broken, crashes or gives a wrong result.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Thanks for reporting this. Security problems don't belong here:
+        please follow the security policy linked on the previous page instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >-
+        Run the tool with `--version`, or give the package version or commit
+        you're using.
+      placeholder: "v0.3.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: What you ran
+      description: >-
+        The exact command, call or config that triggers the problem. A small
+        input that reproduces it is the most useful thing you can add.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: Include the full error message if there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >-
+        Operating system and architecture, plus the Go, Node or Python version
+        if it's relevant.
+      placeholder: "macOS 15 on arm64, Node 24.11"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Anything else that helps. This is shown as plain text.
+      render: text
+
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and this hasn't been reported.
+          required: true

@@ -1,0 +1,13 @@
+name: "❓ Question"
+description: Ask how something works or how to use it.
+labels: ["question"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: >-
+        What you're trying to do and what you've tried so far. If it's about
+        unexpected output, include the version and command you ran.
+    validations:
+      required: true
