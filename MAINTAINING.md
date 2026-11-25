@@ -25,7 +25,7 @@ GitHub organization using two complementary tools: **peribolos** and
 | Org website | **manual** | GitHub API or UI (peribolos has no field) |
 | Repo topics and homepage | safe-settings | `safe-settings/repos/<repo>.yml` |
 | Secret scanning, vuln reporting | **manual** | Org security configuration |
-| `.github` repo ruleset | **manual** | GitHub UI |
+| `.github` repo ruleset | **manual** | `rulesets/dot-github-main.json` |
 
 **Why two tools?** Peribolos manages org-level concerns (who is a member,
 what teams exist, what permissions teams have). Safe-settings manages
@@ -281,7 +281,32 @@ version and revert the patched script back to `npm run full-sync`.
 The following repos are excluded from safe-settings management:
 
 - `.github` -- the admin repo (avoids circular dependency). Its
-  ruleset is managed manually via the GitHub UI.
+  ruleset is applied by hand from `rulesets/dot-github-main.json`.
+
+### The `.github` ruleset
+
+A push to `main` here changes org membership, teams and every repo's
+settings, so `main` is protected by the ruleset
+**main: reviewed changes only**:
+
+- one approving review, from a code owner in `CODEOWNERS`, and a new
+  approval after any later push
+- the `Lint`, `Test` and `Verify peribolos` checks must pass
+- no force pushes, and `main` can't be deleted
+
+Org admins can bypass it, but only when merging a pull request. Direct
+pushes stay blocked for everyone. Each bypass is logged under the
+ruleset's **Insights** tab.
+
+`rulesets/dot-github-main.json` is the source of truth. After changing
+it, apply it with:
+
+```bash
+id=$(gh api repos/zero-dot-force/.github/rulesets \
+  --jq '.[] | select(.name == "main: reviewed changes only") | .id')
+gh api -X PUT "repos/zero-dot-force/.github/rulesets/$id" \
+  --input rulesets/dot-github-main.json
+```
 
 These are listed in `safe-settings/deployment-settings.yml` under
 `restrictedRepos` and/or excluded from suborg files.
