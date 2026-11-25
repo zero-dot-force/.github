@@ -1,0 +1,18 @@
+# Repo override: review-council.
+
+# Discoverability: the homepage points at this project's section on the
+# Unbound Force site, and the shared unbound-force / zero-dot-force topics
+# group the org's repos in search. safe-settings replaces the full topic
+# list on sync, so add topics here, not in the GitHub UI.
+repository:
+  homepage: https://unboundforce.dev/docs/zero-dot-force/#review-council
+  topics:
+    - unbound-force
+    - zero-dot-force
+    - code-review
+    - ai-agents
+    - claude-code
+    - cursor
+    - gemini-cli
+    - opencode
+    - lola
