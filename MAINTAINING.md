@@ -24,7 +24,7 @@ GitHub organization using two complementary tools: **peribolos** and
 | Org name and description | peribolos | `org/config.yaml` |
 | Org website | **manual** | GitHub API or UI (peribolos has no field) |
 | Repo topics and homepage | safe-settings | `safe-settings/repos/<repo>.yml` |
-| Secret scanning, push protection | **manual** | Org security configuration |
+| Secret scanning, vuln reporting | **manual** | Org security configuration |
 | `.github` repo ruleset | **manual** | GitHub UI |
 
 **Why two tools?** Peribolos manages org-level concerns (who is a member,
@@ -96,17 +96,19 @@ that differ from its suborg defaults.
    `default_branch`).
 4. Submit a PR. CI boundary tests validate the override.
 
-### Secret Scanning and Push Protection
+### Secret Scanning, Push Protection and Vulnerability Reporting
 
-Secret scanning and push protection come from the org code security
-configuration **Zero Dot Force baseline** (Settings > Code security >
-Configurations), not from safe-settings. The pinned safe-settings version
-skips `security_and_analysis` when it compares a repo, so it can't keep
-these settings in place.
+Secret scanning, push protection and private vulnerability reporting come
+from the org code security configuration **Zero Dot Force baseline**
+(Settings > Code security > Configurations), not from safe-settings. The
+pinned safe-settings version skips `security_and_analysis` when it
+compares a repo, so it can't keep these settings in place.
 
-- The configuration enables secret scanning and push protection only.
-  Every other field is `not_set`, so it never touches Dependabot, code
-  scanning or private vulnerability reporting.
+- The configuration enables secret scanning, push protection and
+  private vulnerability reporting. Every other field is `not_set`, so it
+  never touches Dependabot or code scanning.
+- Private vulnerability reporting is what makes the **Report a
+  vulnerability** button in `.github/SECURITY.md` work.
 - It's attached to every repo and is the default for new public repos,
   so a new repo gets it without any extra step.
 - `advanced_security` is `enabled` because GitHub requires it for secret
