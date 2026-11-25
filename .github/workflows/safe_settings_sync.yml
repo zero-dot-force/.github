@@ -141,6 +141,26 @@ jobs:
           # revert to 'npm run full-sync' once upstream PR #1018 is
           # merged and we pin to the fixed version.
           #
+          # --- Workaround for upstream repo-name race ---
+          #
+          # v2.1.18's Settings.updateRepos runs for every repo at once
+          # (Promise.all) and stamps each repo's name onto the one shared
+          # org-level `repository` object (Object.assign in place). After
+          # an await, every repo's Repository plugin PATCHes whichever
+          # name was stamped last: a rename of every other repo. GitHub
+          # refuses it only because that name is taken (422 "name already
+          # exists on this account").
+          #
+          # Instead, hand each read of the org-level and suborg-level
+          # `repository` block a fresh shallow copy, as upstream does.
+          #
+          # Upstream issue: github-community-projects/safe-settings#851
+          # Upstream fix:   github-community-projects/safe-settings#943
+          #                 (released in 2.1.19)
+          #
+          # TODO(safe-settings-851): Remove the repository-copy patch
+          # once we pin to 2.1.19 or later.
+          #
           # ---
           cat > full-sync-patched.js << 'ENDPATCH'
           const appFn = require('./')
@@ -162,6 +182,29 @@ jobs:
             for (const err of this.errors || []) {
               failures.push(`${err.plugin} ${err.repo}: ${err.msg}`)
             }
+          }
+
+          // Workaround: github-community-projects/safe-settings#851
+          function copyRepositoryOnRead (config) {
+            const desc = config && Object.getOwnPropertyDescriptor(config, 'repository')
+            if (!desc || desc.get || !desc.value) return
+            const shared = desc.value
+            Object.defineProperty(config, 'repository', {
+              enumerable: true,
+              configurable: true,
+              get: () => ({ ...shared })
+            })
+          }
+          const origUpdateRepos = Settings.prototype.updateRepos
+          Settings.prototype.updateRepos = function (repo) {
+            copyRepositoryOnRead(this.config)
+            return origUpdateRepos.call(this, repo)
+          }
+          const origGetSubOrgConfig = Settings.prototype.getSubOrgConfig
+          Settings.prototype.getSubOrgConfig = function (repoName) {
+            const subOrgConfig = origGetSubOrgConfig.call(this, repoName)
+            if (!subOrgConfig || !subOrgConfig.repository) return subOrgConfig
+            return { ...subOrgConfig, repository: { ...subOrgConfig.repository } }
           }
 
           async function performFullSync (appFn, nop) {
