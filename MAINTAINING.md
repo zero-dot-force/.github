@@ -294,6 +294,11 @@ settings, so `main` is protected by the ruleset
 - the `Lint`, `Test` and `Verify peribolos` checks must pass
 - no force pushes, and `main` can't be deleted
 
+A code owner must be an org admin, or a member of a team in
+`org/config.yaml` with write access or higher to `.github`. GitHub
+ignores code-owner approvals from anyone else, and `TestOrgs` in
+`config/config_test.go` fails if `CODEOWNERS` lists such a user.
+
 Org admins can bypass it, but only when merging a pull request. Direct
 pushes stay blocked for everyone. Each bypass is logged under the
 ruleset's **Insights** tab.

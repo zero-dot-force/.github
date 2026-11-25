@@ -187,6 +187,39 @@ func testTeamMembers(teams map[string]org.Team, admins sets.Set[string], orgMemb
 	return errs
 }
 
+// adminRepo is the repo whose CODEOWNERS file these tests validate.
+const adminRepo = ".github"
+
+// permRank orders repo permissions from none (0) to admin (5).
+var permRank = map[github.RepoPermissionLevel]int{
+	github.Read: 1, github.Triage: 2, github.Write: 3, github.Maintain: 4, github.Admin: 5,
+}
+
+// canWrite reports whether a team permission lets its members approve
+// pull requests as code owners.
+func canWrite(p github.RepoPermissionLevel) bool {
+	return permRank[p] >= permRank[github.Write]
+}
+
+// repoWriters returns the normalized members and maintainers of every team
+// with write access or higher to repo. A child team gets the higher of its
+// own permission and its parent's, as GitHub does.
+func repoWriters(teams map[string]org.Team, repo string, inherited github.RepoPermissionLevel) sets.Set[string] {
+	writers := sets.New[string]()
+	for _, team := range teams {
+		perm := inherited
+		if p, ok := team.Repos[repo]; ok && permRank[p] > permRank[perm] {
+			perm = p
+		}
+		if canWrite(perm) {
+			writers = writers.Union(normalize(sets.New(team.Members...)))
+			writers = writers.Union(normalize(sets.New(team.Maintainers...)))
+		}
+		writers = writers.Union(repoWriters(team.Children, repo, perm))
+	}
+	return writers
+}
+
 func TestOrgs(t *testing.T) {
 	ownUsers, ownTeams, err := loadOwners(*ownersDir)
 	if err != nil {
@@ -198,11 +231,15 @@ func TestOrgs(t *testing.T) {
 		admins := normalize(sets.New(orgCfg.Admins...))
 		allOrgMembers := members.Union(admins)
 
-		// Validate individual CODEOWNERS users are org admins
+		// Validate individual CODEOWNERS users can approve changes to this
+		// repo: each must be an org admin, or a member of a team with at
+		// least write access to it. GitHub ignores a code owner's approval
+		// without write access, so anyone else would block reviews.
 		approvers := normalize(sets.New(ownUsers...))
+		allowedApprovers := admins.Union(repoWriters(orgCfg.Teams, adminRepo, ""))
 
-		if diff := approvers.Difference(admins); len(diff) > 0 {
-			t.Errorf("users do not match in CODEOWNERS and org admins '%s': %s", orgName, strings.Join(diff.UnsortedList(), ", "))
+		if diff := approvers.Difference(allowedApprovers); len(diff) > 0 {
+			t.Errorf("CODEOWNERS users in org '%s' are neither org admins nor on a team with write access to %s: %s", orgName, adminRepo, strings.Join(sets.List(diff), ", "))
 		}
 
 		if n := len(approvers); n < 1 {
