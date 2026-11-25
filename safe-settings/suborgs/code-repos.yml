@@ -9,7 +9,9 @@
 
 suborgrepos:
   - reading-stone
+  - review-council
   - snake-eyes
+  - vibe-check
 
 # Branch ruleset for code repos — strict default-branch protection.
 # Repo-scoped (one ruleset per repo, created by safe-settings) because

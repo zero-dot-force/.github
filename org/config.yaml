@@ -69,4 +69,6 @@ orgs:
         repos:
           .github: write
           reading-stone: write
+          review-council: write
           snake-eyes: write
+          vibe-check: write

@@ -61,10 +61,10 @@ every PR via CI.
 3. Add the repo to the appropriate suborg file:
    - `safe-settings/suborgs/code-repos.yml` for code repositories
    - `safe-settings/suborgs/non-code-repos.yml` for non-code repositories
-4. Add the repo to the matching ruleset `repository_name.include` list
-   in `safe-settings/settings.yml`. **Both files must be updated** -- the
-   suborg controls settings inheritance, the ruleset controls branch
-   protection.
+4. Add the repo to `restrictedRepos.include` in
+   `safe-settings/deployment-settings.yml`. safe-settings only manages
+   repos listed there, so a repo missing from it gets none of the org
+   defaults, suborg rulesets, or repo overrides.
 5. Submit a PR. CI boundary tests validate consistency.
 6. After merge, peribolos creates the repo and sets team permissions.
 7. Trigger `workflow_dispatch` on the "Safe Settings Sync" workflow to

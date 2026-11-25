@@ -39,6 +39,32 @@ rulesets:
       - type: deletion
       - type: non_fast_forward
 
+  # Required CI checks on the default branch. First created outside
+  # safe-settings (2026-11-25); declared here so a sync keeps it.
+  # Repo admins (RepositoryRole 5) may bypass.
+  - name: "ship: required checks"
+    target: branch
+    enforcement: active
+
+    conditions:
+      ref_name:
+        include:
+          - "~DEFAULT_BRANCH"
+        exclude: []
+
+    bypass_actors:
+      - actor_id: 5
+        actor_type: RepositoryRole
+        bypass_mode: always
+
+    rules:
+      - type: required_status_checks
+        parameters:
+          strict_required_status_checks_policy: false
+          required_status_checks:
+            - context: "test (22)"
+            - context: "test (24)"
+
 environments:
   # Gate for the release workflow's stage job. A dispatched run's ref is
   # the branch it runs from (not the tag it creates), so deployments are

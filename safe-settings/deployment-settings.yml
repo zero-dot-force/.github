@@ -15,7 +15,9 @@
 restrictedRepos:
   include:
     - reading-stone
+    - review-council
     - snake-eyes
+    - vibe-check
 
 # Config validators run against each config entry before applying.
 # Return true to allow, false to reject.
