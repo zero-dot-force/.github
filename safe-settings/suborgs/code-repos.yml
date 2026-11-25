@@ -55,6 +55,8 @@ rulesets:
       # (e.g., via individual repo workflow configurations).
       - type: required_status_checks
         parameters:
-          strict_required_status_checks_policy: true
+          # Not strict: with auto-merge, each merge would leave every other
+          # open PR behind, and updating one needs a fresh approval.
+          strict_required_status_checks_policy: false
           required_status_checks:
             - context: "{{EXTERNALLY_DEFINED}}"

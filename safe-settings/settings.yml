@@ -10,7 +10,7 @@
 
 repository:
   # Allow auto-merge on pull requests when all requirements are met.
-  allow_auto_merge: false
+  allow_auto_merge: true
 
   # Automatically delete head branches after pull requests are merged.
   delete_branch_on_merge: true
