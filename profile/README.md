@@ -14,7 +14,6 @@ before they're ready for the big leagues.
 | [vibe-check](https://github.com/zero-dot-force/vibe-check) | Coupling, cohesion and dependency-cycle metrics for Go, Python and TypeScript, emitted as JSON. | | [Releases](https://github.com/zero-dot-force/vibe-check/releases) |
 | [reading-stone](https://github.com/zero-dot-force/reading-stone) | TypeScript analyzer: side effects, coverage and test-to-assertion mapping. | [Gaze](https://github.com/unbound-force/gaze) | [npm](https://www.npmjs.com/package/reading-stone) |
 | [snake-eyes](https://github.com/zero-dot-force/snake-eyes) | Python analyzer: side effects, coverage and test-to-assertion mapping. | [Gaze](https://github.com/unbound-force/gaze) | [PyPI](https://pypi.org/project/snake-eyes-analyzer/) |
-| [review-council](https://github.com/zero-dot-force/review-council) | Six specialist AI reviewers (security, architecture, testing and more) that review a change in parallel and return one verdict. | [The Divisor](https://unboundforce.dev/docs/team/the-divisor/) | [Lola module](https://github.com/zero-dot-force/review-council#readme) |
 
 [Gaze](https://github.com/unbound-force/gaze), Unbound Force's tester,
 scores whether tests actually verify behavior rather than just cover lines.

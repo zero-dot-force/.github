@@ -15,7 +15,6 @@ By taking part, you agree to follow our
 | [vibe-check](https://github.com/zero-dot-force/vibe-check) | Coupling, cohesion and dependency-cycle metrics |
 | [reading-stone](https://github.com/zero-dot-force/reading-stone) | TypeScript analyzer for Gaze |
 | [snake-eyes](https://github.com/zero-dot-force/snake-eyes) | Python analyzer for Gaze |
-| [review-council](https://github.com/zero-dot-force/review-council) | Multi-reviewer AI code review |
 | [.github](https://github.com/zero-dot-force/.github) | Org settings, teams and these files |
 
 Each repo's `README.md` covers setup, and its `AGENTS.md`, where present,
