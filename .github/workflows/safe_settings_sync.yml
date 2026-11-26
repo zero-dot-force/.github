@@ -23,15 +23,6 @@ name: Safe Settings Sync
         required: false
         type: string
         default: ''
-      version:
-        description: >-
-          safe-settings commit SHA or tag to use.
-          Default is 2.1.18 (last version compatible with Probot v13).
-          Includes workaround for check_suite bug (#818) in full-sync
-          mode. See TODO(safe-settings-818) in the sync step.
-        required: false
-        type: string
-        default: '594f3c706de6c4ddafb1a86dfa7468f19337e54f'
 
 permissions:
   contents: none
@@ -64,13 +55,33 @@ jobs:
         run: |
           echo "Scoping safe-settings to repos: $TARGET_REPOS"
 
-          # Build an include (allowlist) from the target repos.
-          # Uses the same format as deployment-settings.yml: plain names
-          # matched by safe-settings via glob/minimatch (not regex).
+          # Build an include allowlist from explicitly managed repository names.
+          mapfile -t ALLOWED_REPOS < <(
+            yq -r '.restrictedRepos.include[]' safe-settings/deployment-settings.yml
+          )
+          declare -A allowed_repos
+          declare -A selected_repos
+          for repo in "${ALLOWED_REPOS[@]}"; do
+            allowed_repos["$repo"]=1
+          done
+
           INCLUDE_LIST=""
           IFS=',' read -ra TARGETS <<< "$TARGET_REPOS"
           for target in "${TARGETS[@]}"; do
             target=$(echo "$target" | xargs)  # trim whitespace
+            if [[ ! "$target" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+              echo "Invalid repository name: $target" >&2
+              exit 1
+            fi
+            if [[ -z "${allowed_repos[$target]+x}" ]]; then
+              echo "Repository is not managed by Safe Settings: $target" >&2
+              exit 1
+            fi
+            if [[ -n "${selected_repos[$target]+x}" ]]; then
+              echo "Repository was specified more than once: $target" >&2
+              exit 1
+            fi
+            selected_repos["$target"]=1
             INCLUDE_LIST="${INCLUDE_LIST}    - ${target}"$'\n'
           done
 
@@ -85,22 +96,22 @@ jobs:
             echo ""
             yq -r 'del(.restrictedRepos) | select(. != null)' \
               safe-settings/deployment-settings.yml
-          } > /tmp/scoped-deployment-settings.yml
+          } > "$RUNNER_TEMP/scoped-deployment-settings.yml"
 
           echo "--- Generated deployment-settings.yml ---"
-          cat /tmp/scoped-deployment-settings.yml
+          cat "$RUNNER_TEMP/scoped-deployment-settings.yml"
 
       - name: Checkout safe-settings code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: github/safe-settings
-          ref: ${{ inputs.version }}
+          ref: '6a8b6ae084987025f6c5de85e3cc6df140f64502'
           path: ${{ env.SAFE_SETTINGS_CODE_DIR }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install safe-settings dependencies
         working-directory: ${{ env.SAFE_SETTINGS_CODE_DIR }}
@@ -115,7 +126,7 @@ jobs:
           ADMIN_REPO: .github
           CONFIG_PATH: safe-settings
           DEPLOYMENT_CONFIG_FILE: >-
-            ${{ inputs.repos != '' && '/tmp/scoped-deployment-settings.yml'
+            ${{ inputs.repos != '' && format('{0}/scoped-deployment-settings.yml', runner.temp)
             || format('{0}/safe-settings/deployment-settings.yml', github.workspace) }}
           FULL_SYNC_NOP: ${{ inputs.dry-run }}
           LOG_LEVEL: ${{ inputs.dry-run && 'debug' || 'info' }}
@@ -125,41 +136,30 @@ jobs:
           fi
           # --- Workaround for upstream check_suite bug ---
           #
-          # safe-settings v2.1.18's Settings.handleResults reports via a
-          # Check Run / PR comment, reading payload.check_suite, which is
-          # undefined outside the webhook flow, so full-sync crashes after
-          # the plugins ran. Catching that crash also swallowed every
-          # plugin ERROR result, so failed syncs reported success.
+          # In NOP mode, safe-settings 2.1.19's Settings.handleResults
+          # reports through a PR comment, reading payload.check_run
+          # .check_suite, which is undefined outside the webhook flow, so
+          # full-sync crashes after the plugins ran. Catching that crash
+          # also hid every plugin ERROR result: a dry run with errors
+          # reported success.
           #
-          # Instead, replace handleResults: log the results and record
-          # whether any plugin returned an ERROR, then fail the step.
+          # Instead, wrap handleResults: record every ERROR result and
+          # logged error, then fail the step. In NOP mode, log the
+          # results instead of commenting; otherwise call upstream's,
+          # which only creates the Safe-Settings check run and works here.
           #
           # Upstream issue: github-community-projects/safe-settings#818
-          # Upstream fix:   github-community-projects/safe-settings#1018
+          # Upstream fix:   github-community-projects/safe-settings#1018,
+          #                 merged by #1047, released in 3.0.0
           #
           # TODO(safe-settings-818): Remove this patched script and
-          # revert to 'npm run full-sync' once upstream PR #1018 is
-          # merged and we pin to the fixed version.
+          # revert to 'npm run full-sync' once we pin to 3.0.0 or later.
           #
-          # --- Workaround for upstream repo-name race ---
+          # --- Repo-name race (safe-settings#851) ---
           #
-          # v2.1.18's Settings.updateRepos runs for every repo at once
-          # (Promise.all) and stamps each repo's name onto the one shared
-          # org-level `repository` object (Object.assign in place). After
-          # an await, every repo's Repository plugin PATCHes whichever
-          # name was stamped last: a rename of every other repo. GitHub
-          # refuses it only because that name is taken (422 "name already
-          # exists on this account").
-          #
-          # Instead, hand each read of the org-level and suborg-level
-          # `repository` block a fresh shallow copy, as upstream does.
-          #
-          # Upstream issue: github-community-projects/safe-settings#851
-          # Upstream fix:   github-community-projects/safe-settings#943
-          #                 (released in 2.1.19)
-          #
-          # TODO(safe-settings-851): Remove the repository-copy patch
-          # once we pin to 2.1.19 or later.
+          # Fixed upstream by #943, released in 2.1.19, the version pinned
+          # above, so no patch is needed here. This workflow carried one
+          # while it ran 2.1.18 (#43).
           #
           # ---
           cat > full-sync-patched.js << 'ENDPATCH'
@@ -168,53 +168,36 @@ jobs:
           const { FULL_SYNC_NOP } = require('./lib/env')
           const { createProbot } = require('probot')
 
-          const failures = []
+          const failures = new Set()
 
           // Workaround: github-community-projects/safe-settings#818
+          const upstreamHandleResults = Settings.prototype.handleResults
           Settings.prototype.handleResults = async function () {
             const results = (this.results || []).filter(Boolean)
-            this.log.info(`Sync results: ${JSON.stringify(results, null, 2)}`)
             for (const res of results) {
               if (res.type === 'ERROR') {
-                failures.push(`${res.plugin} ${res.repo}: ${res.action && res.action.msg}`)
+                failures.add(`${res.plugin} ${res.repo}: ${res.action && res.action.msg}`)
               }
             }
             for (const err of this.errors || []) {
-              failures.push(`${err.plugin} ${err.repo}: ${err.msg}`)
+              failures.add(`${err.plugin} ${err.repo}: ${err.msg}`)
             }
-          }
-
-          // Workaround: github-community-projects/safe-settings#851
-          function copyRepositoryOnRead (config) {
-            const desc = config && Object.getOwnPropertyDescriptor(config, 'repository')
-            if (!desc || desc.get || !desc.value) return
-            const shared = desc.value
-            Object.defineProperty(config, 'repository', {
-              enumerable: true,
-              configurable: true,
-              get: () => ({ ...shared })
-            })
-          }
-          const origUpdateRepos = Settings.prototype.updateRepos
-          Settings.prototype.updateRepos = function (repo) {
-            copyRepositoryOnRead(this.config)
-            return origUpdateRepos.call(this, repo)
-          }
-          const origGetSubOrgConfig = Settings.prototype.getSubOrgConfig
-          Settings.prototype.getSubOrgConfig = function (repoName) {
-            const subOrgConfig = origGetSubOrgConfig.call(this, repoName)
-            if (!subOrgConfig || !subOrgConfig.repository) return subOrgConfig
-            return { ...subOrgConfig, repository: { ...subOrgConfig.repository } }
+            if (this.nop) {
+              this.log.info(`Sync results: ${JSON.stringify(results, null, 2)}`)
+              return
+            }
+            return upstreamHandleResults.call(this)
           }
 
           async function performFullSync (appFn, nop) {
             const probot = createProbot()
+            await probot.ready()
             probot.log.info(`Starting full sync with NOP=${nop}`)
             const app = appFn(probot, {})
             await app.syncInstallation(nop)
-            if (failures.length > 0) {
+            if (failures.size > 0) {
               for (const f of failures) {
-                process.stdout.write(`::error::${f.replace(/\r?\n/g, ' ')}\n`)
+                process.stdout.write(`::error::${String(f).replace(/\r?\n/g, ' ')}\n`)
               }
               process.exit(1)
             }

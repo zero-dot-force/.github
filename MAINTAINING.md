@@ -259,22 +259,31 @@ Common causes:
 
 ### Known upstream workarounds
 
-The workflow includes a patched `full-sync.js` to work around a bug
-in safe-settings where `handleResults` crashes in full-sync mode
-because `payload.check_suite` is undefined outside the webhook flow
-(the sync itself completes; only the Check Run reporting fails). The
-patch replaces `handleResults` to log the results and fail the step
-when any plugin returns an error, so a failed sync never reports
-success.
+The workflow pins safe-settings 2.1.19 (`6a8b6ae`) and runs a patched
+`full-sync.js`. In dry-run (NOP) mode, upstream's `handleResults`
+crashes because `payload.check_suite` is undefined outside the webhook
+flow. The patch wraps `handleResults`: it records every plugin `ERROR`
+result and logged error and fails the step with an `::error::` line for
+each, and in dry-run mode it logs the results instead of commenting.
+Outside dry-run mode it still calls upstream's, which creates the
+Safe-Settings check run. (The earlier patch caught the crash instead,
+which also hid dry-run errors: such a run reported success.)
 
 - **Upstream issue**:
   [github-community-projects/safe-settings#818](https://github.com/github-community-projects/safe-settings/issues/818)
 - **Upstream fix PR**:
-  [github-community-projects/safe-settings#1018](https://github.com/github-community-projects/safe-settings/pull/1018)
+  [github-community-projects/safe-settings#1018](https://github.com/github-community-projects/safe-settings/pull/1018),
+  merged by #1047 and released in 3.0.0
 - **Search tag**: `TODO(safe-settings-818)` in the workflow file
 
-Once upstream PR #1018 is merged and released, update the pinned
-version and revert the patched script back to `npm run full-sync`.
+When we pin to 3.0.0 or later, revert the patched script back to
+`npm run full-sync`.
+
+2.1.19 already has the fix for the repo-name race
+([safe-settings#851](https://github.com/github-community-projects/safe-settings/issues/851),
+fixed by #943), in which a sync of several repos sends another repo's
+name in each repository PATCH. A pin older than 2.1.19 needs a patch
+for it: this repo carried one while it ran 2.1.18 (#43).
 
 ## Excluded Repos
 
