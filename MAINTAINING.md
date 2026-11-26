@@ -94,7 +94,10 @@ that differ from its suborg defaults.
 2. Set only the fields that differ from the suborg/org defaults.
 3. Do NOT set peribolos-owned fields (`description`, `has_projects`,
    `default_branch`).
-4. Submit a PR. CI boundary tests validate the override.
+4. Keep label declarations additive: retain the catch-all label exclusion so
+   labels not explicitly managed by Safe Settings are preserved. Treat label
+   deletion as a separately reviewed change.
+5. Submit a PR. CI boundary tests validate the override.
 
 ### Secret Scanning, Push Protection and Vulnerability Reporting
 
