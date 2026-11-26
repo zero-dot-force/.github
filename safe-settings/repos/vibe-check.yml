@@ -49,6 +49,30 @@ rulesets:
             - context: "test"
             - context: "lint"
 
+  # Release tags are immutable: once a v* tag exists it can't be deleted or
+  # moved. Creation is allowed, so the release workflow's GITHUB_TOKEN can
+  # create the tag (GitHub does not accept the GitHub Actions app as a
+  # ruleset bypass actor). Org admins may bypass to repair a bad tag.
+  # Matches reading-stone and snake-eyes; vibe-check releases v* tags too.
+  - name: release-tag-protection
+    target: tag
+    enforcement: active
+
+    conditions:
+      ref_name:
+        include:
+          - "refs/tags/v*"
+        exclude: []
+
+    bypass_actors:
+      - actor_id: null
+        actor_type: OrganizationAdmin
+        bypass_mode: always
+
+    rules:
+      - type: deletion
+      - type: non_fast_forward
+
 # Labels in use on issues and PRs. Without these entries the org's
 # exclude rule would delete them on a sync. hold and human-gate are
 # gh-hud's (it auto-merges PRs here); github_actions and go are
