@@ -55,10 +55,9 @@ rulesets:
       - type: deletion
       - type: non_fast_forward
 
-  # Required CI checks on the default branch. First created outside
-  # safe-settings (2026-11-25); declared here so a sync keeps it.
-  # Repo admins (RepositoryRole 5) may bypass.
-  - name: "ship: required checks"
+  # Required CI checks on the default branch. Repo admins
+  # (RepositoryRole 5) may bypass.
+  - name: "safe-settings: reading-stone required checks"
     target: branch
     enforcement: active
 
