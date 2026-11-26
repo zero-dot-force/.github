@@ -38,19 +38,19 @@ orgs:
         has_projects: true
       reading-stone:
         default_branch: main
-        description: A TypeScript implementation for gaze
+        description: "TypeScript analyzer for Gaze: finds side effects and maps each test to the assertions that verify them."
         has_projects: true
       snake-eyes:
         default_branch: main
-        description: A Python implementation for gaze
+        description: "Python analyzer for Gaze: finds side effects and maps each test to the assertions that verify them."
         has_projects: true
       vibe-check:
         default_branch: main
-        description: Measuring and enforcing structural quality for agent-written code
+        description: "Coupling, cohesion and dependency-cycle metrics for Go, Python and TypeScript, to catch structural rot in agent-written code."
         has_projects: true
       review-council:
         default_branch: main
-        description: Standalone `review-council` packaged for lola installation
+        description: "Six specialist AI reviewers check a change in parallel and return one verdict. A Lola module for Claude Code, Cursor, Gemini CLI and OpenCode."
         has_projects: true
 
     # Teams
