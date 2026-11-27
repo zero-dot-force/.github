@@ -76,9 +76,11 @@ rulesets:
       - type: required_status_checks
         parameters:
           strict_required_status_checks_policy: false
+          # "CI OK" is ci.yml's always-run aggregate: it passes when the
+          # jobs jflowers/ship's pr-scope.yml chose ran and passed, so Dewey
+          # learnings and toolkit rollout PRs skip the heavy jobs.
           required_status_checks:
-            - context: "test (22)"
-            - context: "test (24)"
+            - context: "CI OK"
 
 environments:
   # Gate for the release workflow's stage job. A dispatched run's ref is

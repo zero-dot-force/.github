@@ -71,9 +71,11 @@ rulesets:
       - type: required_status_checks
         parameters:
           strict_required_status_checks_policy: false
+          # "CI OK" is ci.yml's always-run aggregate: it passes when the
+          # jobs jflowers/ship's pr-scope.yml chose ran and passed, so Dewey
+          # learnings and toolkit rollout PRs skip the heavy jobs.
           required_status_checks:
-            - context: "test (3.11)"
-            - context: "test (3.12)"
+            - context: "CI OK"
 
 # Labels in use on issues and PRs. Without these entries the org's
 # exclude rule would delete them on a sync. hold and human-gate are
